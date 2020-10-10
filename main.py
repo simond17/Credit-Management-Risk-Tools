@@ -29,43 +29,20 @@ df_cat = df.select_dtypes(exclude='number')
 ############################################ Univariate analysis
 #######################################################################################################################
 
-## Numerical variables
+################# Numerical variables
+
 # Pearson correlation on numerical variables
 df_pearson = test_pearson_r(df=df_num, se_target=se_rejected)
 
 # Univariate logistic regression with numerical variable
 df_uni_logit = test_logit(df=df_num, se_target=se_rejected, factor_variable=False)
 
-# todo test cramer v and WOE
+################# Factor variables
+
+# Test cramer correlation on target variable
+df_cramer = apply_cramer_v(df=df_cat, se_target=se_rejected)
+
+# Compute information value on target variable
+df_iv = apply_WOE_IV(df=df_cat, se_target=se_rejected)
 
 
-
-'''
-input df; col (col name)
-output a df with dummy encoded variable, the reference category is the most frequent
-'''
-
-df = df_cat
-col = 'NAME_INCOME_TYPE'
-
-
-
-
-df_dummies = gen_hot_encoded(df_cat, col='NAME_INCOME_TYPE', regroup_smallest_class=True)
-
-# Test category of variables
-
-# t-square test
-
-#
-# https://www.researchgate.net/post/Can_I_use_Pearsons_correlation_coefficient_to_know_the_relation_between_perception_and_gender_age_income#:~:text=You%20can%20use%20chi%20square,be%20measured%20with%20Spearman%20coefficient.&text=If%20the%20categorical%20variable%20has,equivalent%20to%20the%20Pearson%20correlation
-
-
-# for col in df_cat.columns:
-#     print(col)
-#     temp_count = df_cat[col].value_counts()
-#     print(temp_count)
-#
-# df_num.describe()
-
-# make a model to predict loan acceptance

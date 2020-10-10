@@ -9,6 +9,7 @@ import scipy.stats as ss
 ####################################### Numerical variables
 #######################################################################################################################
 
+
 def test_pearson_r(df, se_target):
     df_target = pd.DataFrame(se_target)
 
@@ -66,7 +67,7 @@ def test_logit(df, se_target, factor_variable=False):
         df_logit.loc[col, 'accuracy'] = accuracy_score(temp_target.iloc[:, 0].values, y_hat)
         df_logit.loc[col, 'AUROC'] = roc_auc_score(temp_target.iloc[:, 0].values, y_hat_prob)
 
-    df_logit = df_logit.sort_values(['AUROC'])
+    df_logit = df_logit.sort_values(['AUROC'], ascending=False)
 
     return df_logit
 
@@ -115,6 +116,8 @@ def apply_cramer_v(df, se_target):
         # Assign cramer correlation to appropriate variable
         df_cramer.loc[col, 'cramer V'] = p
 
+    df_cramer = df_cramer.sort_values(['cramer V'], ascending=False)
+
     return df_cramer
 
 
@@ -124,7 +127,6 @@ This function input two df, with columns name and returns a table with the compu
 source:
     https://www.listendata.com/2015/03/weight-of-evidence-woe-and-information.html
 """
-
 
 def compute_woe_iv(df, se_target, col_factor, drop_na=False, na_value='NA'):
 
@@ -148,7 +150,7 @@ def compute_woe_iv(df, se_target, col_factor, drop_na=False, na_value='NA'):
     df_woe = temp_df.groupby([col_factor]).sum()
 
     # Compute sum of non-event
-    df_woe['nb_non_event'] = df_woe['nb_count'] - df_woe['nb_event']
+    df_woe['event_total'] = df_woe['count'] - df_woe[col_target]
 
     # Compute ratio of event and non-event
     df_woe['ratio_event'] = df_woe[col_target] / df_woe['count']
@@ -158,22 +160,22 @@ def compute_woe_iv(df, se_target, col_factor, drop_na=False, na_value='NA'):
     df_woe = df_woe.loc[(df_woe['ratio_event']!=0) & (df_woe['ratio_event']!=1), :]
 
     # Compute sum of total observation and total event and non-event
-    df_woe['nb_count_total'] = df_woe['count'].sum()
-    df_woe['nb_event_total'] = df_woe[col_target].sum()
-    df_woe['nb_non_event_total'] = df_woe['nb_count_total'] - df_woe['nb_event_total']
+    df_woe['count_total'] = df_woe['count'].sum()
+    df_woe['event_total'] = df_woe[col_target].sum()
+    df_woe['non_event_total'] = df_woe['count_total'] - df_woe['event_total']
 
     # Compute relative importance of a factor for all the events and the non-events
 
-    df_woe['frac_event'] = df_woe[col_target]/df_woe['nb_event_total']
-    df_woe['frac_non_event'] = df_woe['nb_non_event'] /df_woe['nb_non_event_total']
+    df_woe['frac_event'] = df_woe[col_target]/df_woe['event_total']
+    df_woe['frac_non_event'] = df_woe['event_total'] / df_woe['non_event_total']
 
     # Compute WOE and adjusted WOE
     df_woe['WOE'] = np.log(df_woe['frac_non_event'] / df_woe['frac_event'])
 
-    df_woe['adj_WOE_num'] = (df_woe['nb_non_event'] + 0.5) / df_woe['nb_non_event_total']
-    df_woe['adj_WOE_den'] = (df_woe[col_target] + 0.5) / df_woe['nb_event_total']
+    df_woe['adj_WOE_num'] = (df_woe['event_total'] + 0.5) / df_woe['non_event_total']
+    df_woe['adj_WOE_den'] = (df_woe[col_target] + 0.5) / df_woe['event_total']
 
-    df_woe['ajd_WOE'] = np.log(df_woe['adj_WOE_num'] / df_woe['adj_WOE_den'])
+    df_woe['adj_WOE'] = np.log(df_woe['adj_WOE_num'] / df_woe['adj_WOE_den'])
 
     # Compute individual IV and adj IV
 
@@ -193,16 +195,18 @@ This function apply the computation of WOE and IV to a df of categorical feature
 """
 
 
-def apply_WOE_IV(df, df_target):
-    # Assign name of target columns
-    col_target = df_target.columns[0]
+def apply_WOE_IV(df, se_target):
+    
+    df_target = pd.DataFrame(se_target)
 
     df_iv = pd.DataFrame(columns=['IV', 'adj_IV'], index=df.columns)
 
     for col_factor in df.columns:
-        temp_df_woe = compute_woe_iv(df, df_target, col_factor, col_target)
+        temp_df_woe = compute_woe_iv(df, se_target, col_factor)
 
         df_iv.loc[col_factor, 'IV'] = temp_df_woe.loc[temp_df_woe.index[0], 'IV']
         df_iv.loc[col_factor, 'adj_IV'] = temp_df_woe.loc[temp_df_woe.index[0], 'adj_IV']
+
+    df_iv = df_iv.sort_values('IV', ascending=False)
 
     return df_iv
