@@ -86,7 +86,10 @@ def cramers_v(x, y):
     return np.sqrt(phi2corr / min((kcorr - 1), (rcorr - 1)))
 
 
-def apply_cramer_v(df, df_target):
+def apply_cramer_v(df, se_target):
+
+    df_target = pd.DataFrame(se_target)
+
     df_cramer = pd.DataFrame(columns=['cramer V'], index=df.columns)
 
     for col in df.columns:
