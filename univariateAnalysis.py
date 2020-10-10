@@ -123,13 +123,23 @@ source:
 """
 
 
-def compute_woe_iv(df, df_target, col_factor, col_target):
+def compute_woe_iv(df, se_target, col_factor, drop_na=False, na_value='NA'):
+
+    # convert serie to df
+    df_target = pd.DataFrame(se_target)
+    col_target = se_target.name
+
     # Gen df for the score of this function
     temp_df = df_target.join(df[col_factor])
-
-    # Drop na and add unit column
-    temp_df = temp_df.dropna()
     temp_df['count'] = 1
+
+    if(drop_na):
+        temp_df = temp_df.dropna()
+
+    else:
+        temp_df[col_factor] = temp_df[col_factor].astype('str')
+        temp_df[col_factor] = temp_df[col_factor].fillna(na_value)
+        temp_df[col_factor] = temp_df[col_factor].astype('str')
 
     # Since the target variable is binary (1 or 0), we can sum to find number of event and sum of observation
     df_woe = temp_df.groupby([col_factor]).sum()
@@ -137,17 +147,25 @@ def compute_woe_iv(df, df_target, col_factor, col_target):
     # Compute sum of non-event
     df_woe['nb_non_event'] = df_woe['nb_count'] - df_woe['nb_event']
 
+    # Compute ratio of event and non-event
+    df_woe['ratio_event'] = df_woe[col_target] / df_woe['count']
+    df_woe['ratio_non_event'] = 1 - df_woe['ratio_event']
+
+    # Drop factors without variation of the target
+    df_woe = df_woe.loc[(df_woe['ratio_event']!=0) & (df_woe['ratio_event']!=1), :]
+
     # Compute sum of total observation and total event and non-event
     df_woe['nb_count_total'] = df_woe['count'].sum()
     df_woe['nb_event_total'] = df_woe[col_target].sum()
     df_woe['nb_non_event_total'] = df_woe['nb_count_total'] - df_woe['nb_event_total']
 
-    # Compute ratio of event and non-event
-    df_woe['ratio_event'] = df_woe[col_target] / df_woe['count']
-    df_woe['ratio_non_event'] = 1 - df_woe['ratio_event']
+    # Compute relative importance of a factor for all the events and the non-events
+
+    df_woe['frac_event'] = df_woe[col_target]/df_woe['nb_event_total']
+    df_woe['frac_non_event'] = df_woe['nb_non_event'] /df_woe['nb_non_event_total']
 
     # Compute WOE and adjusted WOE
-    df_woe['WOE'] = np.log(df_woe['ratio_non_event'] / df_woe['ratio_event'])
+    df_woe['WOE'] = np.log(df_woe['frac_non_event'] / df_woe['frac_event'])
 
     df_woe['adj_WOE_num'] = (df_woe['nb_non_event'] + 0.5) / df_woe['nb_non_event_total']
     df_woe['adj_WOE_den'] = (df_woe[col_target] + 0.5) / df_woe['nb_event_total']
@@ -156,8 +174,8 @@ def compute_woe_iv(df, df_target, col_factor, col_target):
 
     # Compute individual IV and adj IV
 
-    df_woe['IV_i'] = (df_woe['ratio_non_event'] - df_woe['ratio_event']) * df_woe['WOE']
-    df_woe['adj_IV_i'] = (df_woe['ratio_non_event'] - df_woe['ratio_event']) * df_woe['adj_WOE']
+    df_woe['IV_i'] = (df_woe['frac_non_event'] - df_woe['frac_event']) * df_woe['WOE']
+    df_woe['adj_IV_i'] = (df_woe['frac_non_event'] - df_woe['frac_event']) * df_woe['adj_WOE']
 
     # Compute sum IV and adj IV
 
