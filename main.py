@@ -1,6 +1,7 @@
-
 import pandas as pd
 from univariateAnalysis import test_logit, test_pearson_r, apply_WOE_IV, apply_cramer_v
+from dataProcessing import gen_hot_encoded_df
+import statsmodels.api as sm
 
 # Read df and assign index
 data_path = "datasets/home-credit-defaut-risk/"
@@ -45,4 +46,37 @@ df_cramer = apply_cramer_v(df=df_cat, se_target=se_rejected)
 # Compute information value on target variable
 df_iv = apply_WOE_IV(df=df_cat, se_target=se_rejected)
 
+print(df_iv)
 
+#######################################################################################################################
+############################################ Reject inference
+#######################################################################################################################
+
+##### Data preparation
+
+independant_cat_vars = ['NAME_EDUCATION_TYPE', 'HOUSETYPE_MODE', 'NAME_INCOME_TYPE']
+
+independant_num_vars = ['REGION_RATING_CLIENT', 'DAYS_LAST_PHONE_CHANGE', 'EXT_SOURCE_1', 'REGION_POPULATION_RELATIVE']
+
+df_num_hot = df_num[independant_num_vars].copy()
+df_cat_hot = df_cat[independant_cat_vars].copy()
+
+for col in df_num_hot:
+    df_num_hot[col] = pd.cut(df_num[col], bins=4)
+
+df_num_bin = df_num_hot.astype('category')
+
+df_num_hot = gen_hot_encoded_df(df_num_bin)
+df_cat_hot = gen_hot_encoded_df(df_cat_hot)
+
+X = pd.concat([df_num_hot, df_cat_hot], axis=1)
+X['constant'] = 1
+
+y = se_rejected
+# Fit logit model for inference
+
+logit_model = sm.Logit(endog=y, exog=X).fit()
+
+crosstab = pd.crosstab(index=X.index, columns=[y, X['constant']])
+
+crosstab = check_for_perfect_predictor(se_target=y, df=X)

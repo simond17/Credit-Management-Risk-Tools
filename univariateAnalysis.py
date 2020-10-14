@@ -149,15 +149,15 @@ def compute_woe_iv(df, se_target, col_factor, drop_na=False, na_value='NA'):
     # Since the target variable is binary (1 or 0), we can sum to find number of event and sum of observation
     df_woe = temp_df.groupby([col_factor]).sum()
 
-    # Compute sum of non-event
-    df_woe['event_total'] = df_woe['count'] - df_woe[col_target]
+    # Compute non-event per factor
+    df_woe['non_event'] = df_woe['count'] - df_woe[col_target]
 
     # Compute ratio of event and non-event
     df_woe['ratio_event'] = df_woe[col_target] / df_woe['count']
     df_woe['ratio_non_event'] = 1 - df_woe['ratio_event']
 
     # Drop factors without variation of the target
-    df_woe = df_woe.loc[(df_woe['ratio_event']!=0) & (df_woe['ratio_event']!=1), :]
+    df_woe = df_woe.loc[(0 < df_woe['ratio_event']) & (df_woe['ratio_event'] < 1), :]
 
     # Compute sum of total observation and total event and non-event
     df_woe['count_total'] = df_woe['count'].sum()
@@ -166,8 +166,8 @@ def compute_woe_iv(df, se_target, col_factor, drop_na=False, na_value='NA'):
 
     # Compute relative importance of a factor for all the events and the non-events
 
-    df_woe['frac_event'] = df_woe[col_target]/df_woe['event_total']
-    df_woe['frac_non_event'] = df_woe['event_total'] / df_woe['non_event_total']
+    df_woe['frac_event'] = df_woe[col_target] / df_woe['event_total']
+    df_woe['frac_non_event'] = df_woe['non_event'] / df_woe['non_event_total']
 
     # Compute WOE and adjusted WOE
     df_woe['WOE'] = np.log(df_woe['frac_non_event'] / df_woe['frac_event'])
